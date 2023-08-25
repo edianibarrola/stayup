@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Keep Computer Awake</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: #f0f0f0;
+            border-radius: 20px;
+            box-shadow: 10px 10px 20px #cbced1, -10px -10px 20px #ffffff;
+            padding: 20px;
+            text-align: center;
+            width: 300px;
+        }
+
+        label {
+            font-size: 14px;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        button {
+            background-color: #f0f0f0;
+            border: none;
+            border-radius: 10px;
+            box-shadow: 5px 5px 10px #cbced1, -5px -5px 10px #ffffff;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Keep Computer Awake</h1>
+        
+        <label for="durationSlider">Select duration:</label>
+        <input type="range" id="durationSlider" min="0" max="18000" step="1" value="30">
+        <span id="durationLabel">30 seconds</span>
+        
+        <br>
+        
+        <button id="startButton">Start</button>
+    </div>
+    
+    <script>
+        const durationSlider = document.getElementById("durationSlider");
+        const durationLabel = document.getElementById("durationLabel");
+        const startButton = document.getElementById("startButton");
+
+        durationSlider.addEventListener("input", () => {
+            const selectedDuration = parseInt(durationSlider.value);
+            const seconds = selectedDuration;
+            durationLabel.textContent = `${seconds} ${seconds === 1 ? 'second' : 'seconds'}`;
+        });
+
+        startButton.addEventListener("click", () => {
+            startButton.disabled = true;
+
+            const selectedDuration = parseInt(durationSlider.value) * 1000; // Convert to milliseconds
+            simulateActivity(selectedDuration);
+
+            setTimeout(() => {
+                startButton.disabled = false;
+            }, selectedDuration);
+        });
+
+        async function simulateActivity(duration) {
+            // Create an AudioContext
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const buffer = audioCtx.createBuffer(1, 1, 22050); // 1 frame buffer with a sample rate of 22050 Hz
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            source.loop = true; // loop the silent audio
+            source.connect(audioCtx.destination);
+
+            // Try using Wake Lock API first
+            let wakeLock = null;
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+                
+                setTimeout(() => {
+                    wakeLock.release();
+                    wakeLock = null;
+                    source.stop(); // stop the audio when wake lock is released
+                    audioCtx.close(); // close the AudioContext
+                }, duration);
+
+                source.start(); // start the silent audio
+            } catch (err) {
+                console.error(`${err.name}, ${err.message}`);
+                
+                // Fallback to playing silent audio
+                source.start();
+                
+                setTimeout(() => {
+                    source.stop(); // stop the audio when duration is over
+                    audioCtx.close(); // close the AudioContext
+                }, duration);
+            }
+        }
+    </script>
+</body>
+</html>
